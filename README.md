@@ -1,6 +1,6 @@
 # VIVE 37 Nahual — BINGO
 
-Sistema híbrido de venta y distribución de cartones BINGO (virtual y presencial).
+Web Application for VIVE 37 Nahual — sistema híbrido de venta y distribución de cartones BINGO (virtual y presencial).
 
 ## Stack
 
