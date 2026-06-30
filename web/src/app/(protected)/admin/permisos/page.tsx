@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -10,6 +10,10 @@ import { SectionLoader } from "@/components/ui/SectionLoader";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { Modal } from "@/components/ui/Modal";
 import { PermissionsChecklist } from "@/components/auth/PermissionsChecklist";
+import {
+  useUnsavedChanges,
+  useUnsavedChangesContext,
+} from "@/components/ui/UnsavedChanges";
 
 interface UserRow {
   userID: number;
@@ -23,11 +27,23 @@ interface UserRow {
 
 export default function PermisosPage() {
   const { token } = useAuth();
+  const { markSaved } = useUnsavedChangesContext();
   const [editUser, setEditUser] = useState<UserRow | null>(null);
-  const [editPermissions, setEditPermissions] = useState<Permissions | null>(null);
+  const [editPermissions, setEditPermissions] = useState<Permissions | null>(
+    null
+  );
   const [resetPassword, setResetPassword] = useState("");
   const [showReset, setShowReset] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const modalDirty = useMemo(() => {
+    if (!editUser || !editPermissions) return false;
+    const permsChanged =
+      JSON.stringify(editPermissions) !== JSON.stringify(editUser.permissions);
+    return permsChanged || resetPassword.length > 0;
+  }, [editUser, editPermissions, resetPassword]);
+
+  useUnsavedChanges(modalDirty);
 
   const { data, error, isLoading, mutate } = useSWR(["allUsers", token], () =>
     apiCall<UserRow[]>("getAllUsers", {}, token)
@@ -56,6 +72,7 @@ export default function PermisosPage() {
         );
       }
       setEditUser(null);
+      markSaved();
       await mutate();
     } finally {
       setSaving(false);

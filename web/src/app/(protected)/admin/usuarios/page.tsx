@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { useAuth } from "@/lib/auth";
 import { apiCall } from "@/lib/api";
@@ -9,6 +9,7 @@ import { DEFAULT_PERMISSIONS } from "@/lib/types";
 import { SectionLoader } from "@/components/ui/SectionLoader";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { PermissionsChecklist } from "@/components/auth/PermissionsChecklist";
+import { useUnsavedChanges } from "@/components/ui/UnsavedChanges";
 
 interface PendingUser {
   userID: number;
@@ -25,6 +26,12 @@ export default function UsuariosPage() {
     Record<number, Permissions>
   >({});
   const [loadingId, setLoadingId] = useState<number | null>(null);
+
+  const isDirty = useMemo(
+    () => Object.keys(permissionsMap).length > 0,
+    [permissionsMap]
+  );
+  useUnsavedChanges(isDirty);
 
   const { data, error, isLoading, mutate } = useSWR(
     ["pendingUsers", token],
@@ -43,6 +50,11 @@ export default function UsuariosPage() {
         token
       );
       await mutate();
+      setPermissionsMap((prev) => {
+        const next = { ...prev };
+        delete next[user.userID];
+        return next;
+      });
     } finally {
       setLoadingId(null);
     }

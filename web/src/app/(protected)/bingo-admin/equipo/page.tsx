@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { apiCall } from "@/lib/api";
 import { SectionLoader } from "@/components/ui/SectionLoader";
 import { RefreshButton } from "@/components/ui/RefreshButton";
+import {
+  useUnsavedChanges,
+  useUnsavedChangesContext,
+} from "@/components/ui/UnsavedChanges";
 import { Plus, Trash2 } from "lucide-react";
 
 interface Miembro {
@@ -15,21 +19,30 @@ interface Miembro {
 
 export default function EquipoPage() {
   const { token } = useAuth();
+  const { markSaved } = useUnsavedChangesContext();
   const [equipo, setEquipo] = useState<Miembro[]>([]);
+  const [savedEquipo, setSavedEquipo] = useState<Miembro[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+
+  const isDirty = useMemo(
+    () => JSON.stringify(equipo) !== JSON.stringify(savedEquipo),
+    [equipo, savedEquipo]
+  );
+  useUnsavedChanges(isDirty);
 
   const load = async () => {
     setLoading(true);
     try {
       const data = await apiCall<Miembro[]>("getEquipo", {}, token);
-      setEquipo(
-        data.map((m) => ({
-          ...m,
-          activo: m.activo === true || String(m.activo).toUpperCase() === "TRUE",
-        }))
-      );
+      const normalized = data.map((m) => ({
+        ...m,
+        activo: m.activo === true || String(m.activo).toUpperCase() === "TRUE",
+      }));
+      setEquipo(normalized);
+      setSavedEquipo(normalized);
+      markSaved();
     } finally {
       setLoading(false);
     }
@@ -43,8 +56,9 @@ export default function EquipoPage() {
     setSaving(true);
     try {
       await apiCall("saveEquipo", { equipo }, token);
+      setSavedEquipo([...equipo]);
+      markSaved();
       setMessage("Equipo actualizado");
-      await load();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Error");
     } finally {
@@ -68,6 +82,12 @@ export default function EquipoPage() {
       </div>
 
       <SectionLoader loading={loading}>
+        {isDirty && (
+          <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Tiene cambios sin guardar. Guarde antes de salir de esta página.
+          </p>
+        )}
+
         <div className="grid gap-4 md:grid-cols-2">
           {equipo.map((m, idx) => (
             <div
@@ -115,12 +135,14 @@ export default function EquipoPage() {
           <Plus className="h-4 w-4" /> Agregar miembro
         </button>
 
-        {message && <p className="mt-4 text-sm text-green-700">{message}</p>}
+        {message && (
+          <p className="mt-4 text-sm text-green-700">{message}</p>
+        )}
 
         <button
           type="button"
           onClick={save}
-          disabled={saving}
+          disabled={saving || !isDirty}
           className="mt-4 rounded-lg bg-amber-600 px-6 py-2 font-medium text-white hover:bg-amber-700 disabled:opacity-50"
         >
           {saving ? "Guardando..." : "Guardar Equipo"}

@@ -27,6 +27,8 @@ function routeAction(action, token, payload) {
       return registerUser(payload);
     case 'login':
       return authenticateUser(payload);
+    case 'updateMyUsername':
+      return updateMyUsername(token, payload.newUsername);
 
     // Entradas / Ventas
     case 'getEntradasPendientes':

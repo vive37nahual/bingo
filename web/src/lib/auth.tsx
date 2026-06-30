@@ -21,6 +21,7 @@ interface AuthState {
   login: (login: string, password: string) => Promise<void>;
   register: (data: Record<string, string>) => Promise<void>;
   logout: () => void;
+  updateUsername: (newUsername: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -90,6 +91,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
+  const updateUsername = useCallback(
+    async (newUsername: string) => {
+      if (!token || !user) throw new Error("No hay sesión activa");
+      await apiCall("updateMyUsername", { newUsername }, token);
+      const updatedUser = { ...user, user: newUsername };
+      setUser(updatedUser);
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        parsed.user = updatedUser;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      }
+    },
+    [token, user]
+  );
+
   const value = useMemo(
     () => ({
       token,
@@ -100,8 +117,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       register,
       logout,
+      updateUsername,
     }),
-    [token, user, permissions, isAdmin, isLoading, login, register, logout]
+    [token, user, permissions, isAdmin, isLoading, login, register, logout, updateUsername]
   );
 
   return (

@@ -1,26 +1,48 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { apiCall } from "@/lib/api";
 import { SectionLoader } from "@/components/ui/SectionLoader";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { Modal } from "@/components/ui/Modal";
+import {
+  useUnsavedChanges,
+  useUnsavedChangesContext,
+} from "@/components/ui/UnsavedChanges";
 
 const TEMPLATE_KEYS = [
   { key: "email_virtual", label: "Email — Virtual", type: "html" },
   { key: "email_presencial", label: "Email — Presencial", type: "html" },
   { key: "whatsapp_virtual", label: "WhatsApp — Virtual", type: "whatsapp" },
-  { key: "whatsapp_presencial", label: "WhatsApp — Presencial", type: "whatsapp" },
+  {
+    key: "whatsapp_presencial",
+    label: "WhatsApp — Presencial",
+    type: "whatsapp",
+  },
 ] as const;
 
 export default function NotificacionesAdminPage() {
   const { token } = useAuth();
+  const { markSaved } = useUnsavedChangesContext();
   const [templates, setTemplates] = useState<Record<string, string>>({});
+  const [savedTemplates, setSavedTemplates] = useState<Record<string, string>>(
+    {}
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [preview, setPreview] = useState<{ title: string; content: string; type: string } | null>(null);
+  const [preview, setPreview] = useState<{
+    title: string;
+    content: string;
+    type: string;
+  } | null>(null);
   const [message, setMessage] = useState("");
+
+  const isDirty = useMemo(
+    () => JSON.stringify(templates) !== JSON.stringify(savedTemplates),
+    [templates, savedTemplates]
+  );
+  useUnsavedChanges(isDirty);
 
   const load = async () => {
     setLoading(true);
@@ -31,6 +53,8 @@ export default function NotificacionesAdminPage() {
         token
       );
       setTemplates(data);
+      setSavedTemplates(data);
+      markSaved();
     } finally {
       setLoading(false);
     }
@@ -44,6 +68,8 @@ export default function NotificacionesAdminPage() {
     setSaving(true);
     try {
       await apiCall("saveNotificaciones", { templates }, token);
+      setSavedTemplates({ ...templates });
+      markSaved();
       setMessage("Plantillas guardadas");
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Error");
@@ -79,6 +105,12 @@ export default function NotificacionesAdminPage() {
       </p>
 
       <SectionLoader loading={loading}>
+        {isDirty && (
+          <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Tiene cambios sin guardar. Guarde antes de salir de esta página.
+          </p>
+        )}
+
         <div className="space-y-6">
           {TEMPLATE_KEYS.map(({ key, label, type }) => (
             <div key={key} className="rounded-xl border bg-white p-4">
@@ -109,7 +141,7 @@ export default function NotificacionesAdminPage() {
         <button
           type="button"
           onClick={save}
-          disabled={saving}
+          disabled={saving || !isDirty}
           className="mt-6 rounded-lg bg-amber-600 px-6 py-2 font-medium text-white hover:bg-amber-700 disabled:opacity-50"
         >
           {saving ? "Guardando..." : "Guardar Plantillas"}

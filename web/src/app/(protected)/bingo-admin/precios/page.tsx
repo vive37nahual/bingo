@@ -1,17 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { apiCall, formatColones } from "@/lib/api";
 import { SectionLoader } from "@/components/ui/SectionLoader";
 import { RefreshButton } from "@/components/ui/RefreshButton";
+import {
+  useUnsavedChanges,
+  useUnsavedChangesContext,
+} from "@/components/ui/UnsavedChanges";
 
 export default function PreciosPage() {
   const { token } = useAuth();
+  const { markSaved } = useUnsavedChangesContext();
   const [precios, setPrecios] = useState<Record<string, number>>({});
+  const [savedPrecios, setSavedPrecios] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+
+  const isDirty = useMemo(
+    () => JSON.stringify(precios) !== JSON.stringify(savedPrecios),
+    [precios, savedPrecios]
+  );
+  useUnsavedChanges(isDirty);
 
   const load = async () => {
     setLoading(true);
@@ -22,6 +34,8 @@ export default function PreciosPage() {
         token
       );
       setPrecios(data);
+      setSavedPrecios(data);
+      markSaved();
     } finally {
       setLoading(false);
     }
@@ -36,6 +50,8 @@ export default function PreciosPage() {
     setMessage("");
     try {
       await apiCall("savePrecios", { precios }, token);
+      setSavedPrecios({ ...precios });
+      markSaved();
       setMessage("Precios guardados correctamente");
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Error");
@@ -57,23 +73,34 @@ export default function PreciosPage() {
           cambios solo afectan nuevas compras en el formulario.
         </p>
 
+        {isDirty && (
+          <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Tiene cambios sin guardar. Guarde antes de salir de esta página.
+          </p>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
             <div
               key={n}
-              className="flex items-center gap-3 rounded-lg border bg-white p-3"
+              className="flex flex-col rounded-lg border bg-white p-3"
             >
-              <span className="w-24 text-sm font-medium">{n} cartón(es)</span>
+              <span className="mb-2 text-sm font-medium text-gray-800">
+                {n} cartón(es)
+              </span>
               <input
                 type="number"
                 min={0}
                 value={precios[String(n)] ?? precios[n] ?? 0}
                 onChange={(e) =>
-                  setPrecios({ ...precios, [String(n)]: Number(e.target.value) })
+                  setPrecios({
+                    ...precios,
+                    [String(n)]: Number(e.target.value),
+                  })
                 }
-                className="flex-1 rounded border px-2 py-1 text-sm"
+                className="w-full rounded border px-2 py-1.5 text-sm"
               />
-              <span className="text-xs text-gray-500">
+              <span className="mt-2 text-center text-sm font-semibold text-amber-700">
                 {formatColones(precios[String(n)] ?? 0)}
               </span>
             </div>
@@ -81,13 +108,17 @@ export default function PreciosPage() {
         </div>
 
         {message && (
-          <p className="mt-4 text-sm text-green-700">{message}</p>
+          <p
+            className={`mt-4 text-sm ${message.includes("correctamente") ? "text-green-700" : "text-red-600"}`}
+          >
+            {message}
+          </p>
         )}
 
         <button
           type="button"
           onClick={save}
-          disabled={saving}
+          disabled={saving || !isDirty}
           className="mt-6 rounded-lg bg-amber-600 px-6 py-2 font-medium text-white hover:bg-amber-700 disabled:opacity-50"
         >
           {saving ? "Guardando..." : "Guardar Precios"}

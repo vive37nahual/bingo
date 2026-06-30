@@ -133,6 +133,66 @@ function registerUser(payload) {
   return { message: 'Solicitud registrada. Pendiente de aprobación por un administrador.' };
 }
 
+/**
+ * Ejecutar una vez desde el editor de Apps Script si el login admin falla
+ * (p. ej. si se ejecutó init dos veces y el salt ya no coincide con el hash).
+ */
+function repairAdminUser() {
+  var props = PropertiesService.getScriptProperties();
+  var salt = props.getProperty('PASSWORD_SALT');
+  if (!salt) {
+    salt = Utilities.getUuid();
+    props.setProperty('PASSWORD_SALT', salt);
+  }
+  if (!props.getProperty('TOKEN_SECRET')) {
+    props.setProperty('TOKEN_SECRET', Utilities.getUuid());
+  }
+
+  var sheet = getSheet(SHEET_NAMES.USERS);
+  var row = findRowByColumn(sheet, 'user', 'admin');
+  var hash = hashPassword('Admin123!');
+
+  if (row === -1) {
+    sheet.appendRow([
+      1, 'Administrador', 'Nahual', 'admin', hash, 'admin@nahual37.local',
+      'Aprobado', true, JSON.stringify({
+        bingoAdmin_precios: true, bingoAdmin_equipo: true, bingoAdmin_cartones: true,
+        bingoAdmin_notificaciones: true, bingoVentas_pendientes: true,
+        bingoVentas_notificaciones: true, bingoVentas_myfreebingo: true,
+        bingoVentas_historial: true, admin_usuarios: true, admin_permisos: true
+      })
+    ]);
+  } else {
+    updateRowFields(sheet, row, {
+      passwordHash: hash,
+      estado: 'Aprobado',
+      admin: true
+    });
+  }
+
+  Logger.log('Admin reparado. Usuario: admin | Contraseña: Admin123!');
+  return 'Admin reparado. Usuario: admin | Contraseña: Admin123!';
+}
+
+function updateMyUsername(token, newUsername) {
+  var auth = requireAuth(token);
+  var username = String(newUsername || '').trim();
+  if (!username) throw new Error('Nombre de usuario requerido');
+  if (username.length < 3) throw new Error('El usuario debe tener al menos 3 caracteres');
+
+  var existing = getUserByLogin(username);
+  if (existing && Number(existing.userID) !== Number(auth.user.userID)) {
+    throw new Error('Ese nombre de usuario ya está en uso');
+  }
+
+  var sheet = getSheet(SHEET_NAMES.USERS);
+  var row = findRowByColumn(sheet, 'userID', auth.user.userID);
+  if (row === -1) throw new Error('Usuario no encontrado');
+
+  updateRowFields(sheet, row, { user: username });
+  return { user: username, message: 'Nombre de usuario actualizado' };
+}
+
 function resetUserPassword(userId, newPassword, token) {
   requirePermission(token, 'admin_permisos');
   var sheet = getSheet(SHEET_NAMES.USERS);
