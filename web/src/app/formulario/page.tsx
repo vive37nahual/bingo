@@ -39,6 +39,7 @@ export default function FormularioPage() {
     vendedor: "",
     metodo: "",
   });
+  const [cantidadInput, setCantidadInput] = useState("1");
 
   useEffect(() => {
     apiCall<FormConfig>("getFormConfig")
@@ -47,10 +48,32 @@ export default function FormularioPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const cantidadForPrice =
+    Number(cantidadInput) >= 1 && Number(cantidadInput) <= 20
+      ? Number(cantidadInput)
+      : form.cantidad;
+
   const monto =
-    config?.precios[String(form.cantidad)] ??
-    config?.precios[form.cantidad] ??
+    config?.precios[String(cantidadForPrice)] ??
+    config?.precios[cantidadForPrice] ??
     0;
+
+  const clampCantidad = (value: number) => Math.min(20, Math.max(1, value));
+
+  const setCantidad = (value: number) => {
+    const clamped = clampCantidad(value);
+    setForm((prev) => ({ ...prev, cantidad: clamped }));
+    setCantidadInput(String(clamped));
+  };
+
+  const handleCantidadBlur = () => {
+    const parsed = Number(cantidadInput);
+    if (!cantidadInput.trim() || Number.isNaN(parsed)) {
+      setCantidad(form.cantidad);
+      return;
+    }
+    setCantidad(parsed);
+  };
 
   const validateEmail = useCallback((email: string) => {
     const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -98,6 +121,18 @@ export default function FormularioPage() {
       return;
     }
 
+    const cantidadFinal = Number(cantidadInput);
+    if (
+      !cantidadInput.trim() ||
+      Number.isNaN(cantidadFinal) ||
+      cantidadFinal < 1 ||
+      cantidadFinal > 20
+    ) {
+      setError("Cantidad de cartones debe ser entre 1 y 20");
+      return;
+    }
+    setCantidad(cantidadFinal);
+
     setSubmitting(true);
     try {
       const base64 = await fileToBase64(file);
@@ -109,6 +144,7 @@ export default function FormularioPage() {
         monto: number;
       }>("submitEntrada", {
         ...form,
+        cantidad: cantidadFinal,
         comprobanteBase64: base64,
         comprobanteMimeType: file.type || "application/octet-stream",
         comprobanteFileName: file.name,
@@ -239,20 +275,46 @@ export default function FormularioPage() {
 
             <div className="flex flex-wrap items-end gap-4">
               <Field label="Cantidad de cartones" required>
-                <input
-                  required
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={form.cantidad}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      cantidad: Math.min(20, Math.max(1, Number(e.target.value))),
-                    })
-                  }
-                  className="input-field w-32"
-                />
+                <div className="flex items-stretch">
+                  <button
+                    type="button"
+                    aria-label="Disminuir cantidad"
+                    onClick={() => setCantidad(form.cantidad - 1)}
+                    disabled={form.cantidad <= 1}
+                    className="rounded-l-lg border border-r-0 border-gray-300 bg-amber-50 px-3 text-lg font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-40"
+                  >
+                    −
+                  </button>
+                  <input
+                    required
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={cantidadInput}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "");
+                      setCantidadInput(digits);
+                      if (digits !== "") {
+                        const parsed = Number(digits);
+                        if (parsed >= 1 && parsed <= 20) {
+                          setForm((prev) => ({ ...prev, cantidad: parsed }));
+                        }
+                      }
+                    }}
+                    onBlur={handleCantidadBlur}
+                    className="input-field w-16 rounded-none border-x-0 text-center [appearance:textfield]"
+                  />
+                  <button
+                    type="button"
+                    aria-label="Aumentar cantidad"
+                    onClick={() => setCantidad(form.cantidad + 1)}
+                    disabled={form.cantidad >= 20}
+                    className="rounded-r-lg border border-l-0 border-gray-300 bg-amber-50 px-3 text-lg font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-40"
+                  >
+                    +
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Entre 1 y 20 cartones</p>
               </Field>
               <div className="rounded-lg bg-amber-50 px-4 py-2">
                 <span className="text-sm text-gray-600">Monto total: </span>

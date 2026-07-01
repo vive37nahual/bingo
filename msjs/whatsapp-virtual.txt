@@ -1,0 +1,35 @@
+Hola, {{nombre}}
+
+Gracias por apoyar con la compra de {{numcartones}} cartón(es) para el evento del BINGO en beneficio de Casa Hogar San Lazaro. A continuación te compartimos los detalles del evento y de tu compra para que no te lo pierdas:
+
+Nombre: {{nombre}}
+Correo Electrónico: {{email}}
+Modalidad: Virtual
+Cantidad de Cartones: {{numcartones}}
+Pago Realizado: {{pago}}
+
+Fecha y hora: sábado, 4 de julio de 2026, de 11:00 a.m. a 6:00 p.m.
+
+IMPORTANTE:
+Estarás recibiendo un correo de parte de "bingo@mail.mfbc.us" con Asunto: Bingo Invite donde encontrarás tu enlace de juego digital de forma que puedas ver múltiples cartones en una sola página.
+
+
+El método de juego virtual es por medio de una reunión de Zoom.
+
+Zoom Link: https://us06web.zoom.us/j/85014296599?pwd=LiWyDqiKmthBNJT6QOMNkHbxNP0eRo.1
+
+ID: 850 1429 6599 | Código: 811522
+
+---------
+
+Links virtuales individuales por cartón único:
+{{linkcartones}}
+
+Links de PDF individuales por cartón único:
+{{pdfscartones}}
+
+
+Le deseamos un juego extraordinario con sus cartones y nos vemos en el BINGO.
+
+Atentamente:
+El Equipo de VIVE 37 Nahual

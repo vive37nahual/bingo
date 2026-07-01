@@ -1,0 +1,38 @@
+Hola, {{nombre}}:
+
+Gracias por apoyar con la compra de {{numcartones}} cartón(es) para el evento del BINGO en beneficio de Casa Hogar San Lazaro. A continuación te compartimos los detalles del evento y de tu compra para que no te lo pierdas:
+
+Nombre: {{nombre}}
+Correo Electrónico: {{email}}
+Modalidad: Presencial
+Cantidad de Cartones: {{numcartones}}
+Pago Realizado: {{pago}}
+
+Fecha y hora: sábado, 4 de julio de 2026, de 11:00 a.m. a 6:00 p.m.
+
+IMPORTANTE:
+Tendremos deliciosas comidas en sitio para disfrutar. Todas las comidas serán de apoyo para Casa Hogar San Lazaro y nuestro proyecto. De antemano te agradecemos este apoyo.
+
+El evento se realizara en la escuela San Ezequiel Moreno, ubicada en Belén, Heredia, Costa Rica. A continuación dejamos enlaces para que puedan navegar al sitio con una dirección de GPS.
+
+Waze: https://waze.com/ul/hd1u0u202x
+Google Maps: https://maps.app.goo.gl/P4A8J44MPkrozZdE6
+
+Links virtuales individuales por cartón único:
+{{linkcartones}}
+
+Links de PDF individuales por cartón único:
+{{pdfscartones}}
+
+Nota: En el extraordinario caso de que no puedas estar presente el día del BINGO, acá te damos la recomendación de imprimir tus cartones que fueron adjuntados e ingresar en la sesión virtual por medio de Zoom para que puedas participar igualmente.
+
+El BINGO virtual se jugara ingresando en la reunión de Zoom.
+
+Zoom Link: https://us06web.zoom.us/j/85014296599?pwd=LiWyDqiKmthBNJT6QOMNkHbxNP0eRo.1
+
+ID: 850 1429 6599 | Código: 811522
+
+Le deseamos un juego extraordinario con sus cartones y nos vemos en el BINGO.
+
+Atentamente:
+El Equipo de VIVE 37 Nahual
