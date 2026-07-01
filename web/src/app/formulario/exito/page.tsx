@@ -52,7 +52,7 @@ export default function FormularioExitoPage() {
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white px-4 py-12">
       <div className="mx-auto max-w-lg">
         <Image
-          src="/logo.png"
+          src="/logo-ref.png"
           alt="VIVE 37 Nahual"
           width={120}
           height={120}

@@ -167,7 +167,7 @@ export default function FormularioPage() {
       <div className="mx-auto max-w-2xl">
         <div className="mb-6 text-center">
           <Image
-            src="/logo.png"
+            src="/logo-ref.png"
             alt="VIVE 37 Nahual"
             width={160}
             height={160}
