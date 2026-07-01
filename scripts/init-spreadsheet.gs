@@ -6,7 +6,7 @@ function initNahualSpreadsheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
   createSheetWithHeaders_(ss, 'entradas', [
-    'entradaID', 'fechaRegistro', 'nombre', 'apellido', 'modalidad', 'correo',
+    'entradaID', 'codigoCompra', 'fechaRegistro', 'nombre', 'apellido', 'modalidad', 'correo',
     'notifyWhatsApp', 'numWA', 'cantidad', 'monto', 'vendedor', 'metodo',
     'comprobante', 'estado', 'cartonesAsignados', 'emailEnviado', 'whatsappEnviado',
     'myfreebingoListo', 'notaRegreso', 'fechaCompletada'

@@ -89,16 +89,23 @@ function assignCartones(entrada) {
   lock.waitLock(30000);
   try {
     var sheet = getSheet(SHEET_NAMES.CARTONES);
-    var cartones = getCartonesSheetData()
-      .filter(function(c) { return String(c.estado) === 'Disponible'; })
-      .map(function(c) {
-        return {
-          numero: padCardNumber(c.numero),
-          linkJuego: c.linkJuego,
-          linkPDF: c.linkPDF,
-          row: findRowByColumn(sheet, 'numero', c.numero)
-        };
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var estadoCol = headers.indexOf('estado');
+    var numCol = headers.indexOf('numero');
+    var juegoCol = headers.indexOf('linkJuego');
+    var pdfCol = headers.indexOf('linkPDF');
+
+    var cartones = [];
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][estadoCol]) !== 'Disponible') continue;
+      cartones.push({
+        numero: padCardNumber(data[i][numCol]),
+        linkJuego: data[i][juegoCol],
+        linkPDF: data[i][pdfCol],
+        row: i + 1
       });
+    }
 
     var cantidad = Number(entrada.cantidad);
     if (cartones.length < cantidad) {
@@ -137,18 +144,20 @@ function releaseCartones(entradaId) {
   lock.waitLock(30000);
   try {
     var sheet = getSheet(SHEET_NAMES.CARTONES);
-    var cartones = getCartonesSheetData();
-    cartones.forEach(function(c) {
-      if (String(c.entradaID) === String(entradaId)) {
-        var row = findRowByColumn(sheet, 'numero', c.numero);
-        updateRowFields(sheet, row, {
-          estado: 'Disponible',
-          entradaID: '',
-          comprador: '',
-          vendedor: ''
-        });
-      }
-    });
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var entradaCol = headers.indexOf('entradaID');
+    var numCol = headers.indexOf('numero');
+
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][entradaCol]) !== String(entradaId)) continue;
+      updateRowFields(sheet, i + 1, {
+        estado: 'Disponible',
+        entradaID: '',
+        comprador: '',
+        vendedor: ''
+      });
+    }
   } finally {
     lock.releaseLock();
   }

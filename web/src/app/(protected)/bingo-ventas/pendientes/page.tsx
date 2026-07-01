@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { apiCall } from "@/lib/api";
 import type { Entrada, PaginatedResponse } from "@/lib/types";
 import { SectionLoader } from "@/components/ui/SectionLoader";
+import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { EntradaCard } from "@/components/ventas/EntradaCard";
 
@@ -16,6 +17,7 @@ export default function PendientesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [actionMessage, setActionMessage] = useState("Procesando...");
 
   const { data, error, isLoading, mutate } = useSWR(
     ["pendientes", page, pageSize, token],
@@ -31,6 +33,11 @@ export default function PendientesPage() {
     entradaId: number,
     action: "approveEntrada" | "rejectEntrada"
   ) => {
+    setActionMessage(
+      action === "approveEntrada"
+        ? "Aprobando compra y asignando cartones..."
+        : "Rechazando solicitud..."
+    );
     setActionLoading(entradaId);
     try {
       await apiCall(action, { entradaId }, token);
@@ -42,6 +49,8 @@ export default function PendientesPage() {
 
   return (
     <div>
+      <LoadingOverlay active={actionLoading !== null} message={actionMessage} />
+
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold">BINGO Ventas — Pendientes</h1>
         <div className="flex items-center gap-3">
@@ -53,6 +62,7 @@ export default function PendientesPage() {
                 setPageSize(Number(e.target.value));
                 setPage(1);
               }}
+              disabled={actionLoading !== null}
               className="rounded border px-2 py-1"
             >
               {PAGE_SIZES.map((s) => (
@@ -62,11 +72,14 @@ export default function PendientesPage() {
               ))}
             </select>
           </label>
-          <RefreshButton onRefresh={() => mutate()} loading={isLoading} />
+          <RefreshButton
+            onRefresh={() => mutate()}
+            loading={isLoading || actionLoading !== null}
+          />
         </div>
       </div>
 
-      <SectionLoader loading={isLoading}>
+      <SectionLoader loading={isLoading} message="Cargando pendientes...">
         {error && (
           <p className="text-red-600">
             {error instanceof Error ? error.message : "Error"}
@@ -79,6 +92,11 @@ export default function PendientesPage() {
               entrada={entrada}
               variant="pendientes"
               loading={actionLoading === entrada.entradaID}
+              loadingLabel={
+                actionMessage.startsWith("Aprobando")
+                  ? "Aprobando..."
+                  : "Rechazando..."
+              }
               onApprove={() => handleAction(entrada.entradaID, "approveEntrada")}
               onReject={() => handleAction(entrada.entradaID, "rejectEntrada")}
             />
@@ -92,7 +110,7 @@ export default function PendientesPage() {
           <div className="mt-6 flex justify-center gap-2">
             <button
               type="button"
-              disabled={page <= 1}
+              disabled={page <= 1 || actionLoading !== null}
               onClick={() => setPage(page - 1)}
               className="rounded border px-3 py-1 text-sm disabled:opacity-50"
             >
@@ -103,7 +121,7 @@ export default function PendientesPage() {
             </span>
             <button
               type="button"
-              disabled={page >= data.totalPages}
+              disabled={page >= data.totalPages || actionLoading !== null}
               onClick={() => setPage(page + 1)}
               className="rounded border px-3 py-1 text-sm disabled:opacity-50"
             >

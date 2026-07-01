@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { apiCall, copyToClipboard } from "@/lib/api";
 import type { Entrada, PaginatedResponse } from "@/lib/types";
 import { SectionLoader } from "@/components/ui/SectionLoader";
+import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { Modal } from "@/components/ui/Modal";
 import { EntradaCard } from "@/components/ventas/EntradaCard";
@@ -15,6 +16,7 @@ export default function NotificacionesVentasPage() {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [actionMessage, setActionMessage] = useState("Procesando...");
   const [preview, setPreview] = useState<{
     title: string;
     content: string;
@@ -31,7 +33,12 @@ export default function NotificacionesVentasPage() {
       )
   );
 
-  const withLoading = async (entradaId: number, fn: () => Promise<void>) => {
+  const withLoading = async (
+    entradaId: number,
+    message: string,
+    fn: () => Promise<void>
+  ) => {
+    setActionMessage(message);
     setActionLoading(entradaId);
     try {
       await fn();
@@ -43,12 +50,17 @@ export default function NotificacionesVentasPage() {
 
   return (
     <div>
+      <LoadingOverlay active={actionLoading !== null} message={actionMessage} />
+
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">BINGO Ventas — Notificaciones</h1>
-        <RefreshButton onRefresh={() => mutate()} loading={isLoading} />
+        <RefreshButton
+          onRefresh={() => mutate()}
+          loading={isLoading || actionLoading !== null}
+        />
       </div>
 
-      <SectionLoader loading={isLoading}>
+      <SectionLoader loading={isLoading} message="Cargando notificaciones...">
         {error && (
           <p className="text-red-600">
             {error instanceof Error ? error.message : "Error"}
@@ -61,65 +73,100 @@ export default function NotificacionesVentasPage() {
               entrada={entrada}
               variant="notificaciones"
               loading={actionLoading === entrada.entradaID}
+              loadingLabel="Procesando..."
               onEmailPreview={async () => {
-                const html = await apiCall<string>(
-                  "getEmailPreview",
-                  { entradaId: entrada.entradaID },
-                  token
-                );
-                setPreview({ title: "Vista previa Email", content: html, type: "html" });
+                setActionMessage("Generando vista previa del correo...");
+                setActionLoading(entrada.entradaID);
+                try {
+                  const html = await apiCall<string>(
+                    "getEmailPreview",
+                    { entradaId: entrada.entradaID },
+                    token
+                  );
+                  setPreview({
+                    title: "Vista previa Email",
+                    content: html,
+                    type: "html",
+                  });
+                } finally {
+                  setActionLoading(null);
+                }
               }}
               onSendEmail={() =>
-                withLoading(entrada.entradaID, () =>
+                withLoading(entrada.entradaID, "Enviando correo de confirmación...", () =>
                   apiCall("sendEmail", { entradaId: entrada.entradaID }, token).then(
                     () => undefined
                   )
                 )
               }
               onWhatsAppPreview={async () => {
-                const result = await apiCall<{ message: string }>(
-                  "getWhatsAppPreview",
-                  { entradaId: entrada.entradaID },
-                  token
-                );
-                setPreview({
-                  title: "Vista previa WhatsApp",
-                  content: result.message,
-                  type: "whatsapp",
-                });
-              }}
-              onSendWhatsApp={async () => {
-                const { url } = await apiCall<{ url: string }>(
-                  "getWhatsAppUrl",
-                  { entradaId: entrada.entradaID },
-                  token
-                );
-                window.open(url, "_blank");
-              }}
-              onCopyWhatsApp={async () => {
-                const { url } = await apiCall<{ url: string }>(
-                  "getWhatsAppUrl",
-                  { entradaId: entrada.entradaID },
-                  token
-                );
-                await copyToClipboard(url);
-              }}
-              onConfirmWhatsApp={() =>
-                withLoading(entrada.entradaID, () =>
-                  apiCall(
-                    "confirmWhatsApp",
+                setActionMessage("Generando vista previa de WhatsApp...");
+                setActionLoading(entrada.entradaID);
+                try {
+                  const result = await apiCall<{ message: string }>(
+                    "getWhatsAppPreview",
                     { entradaId: entrada.entradaID },
                     token
-                  ).then(() => undefined)
+                  );
+                  setPreview({
+                    title: "Vista previa WhatsApp",
+                    content: result.message,
+                    type: "whatsapp",
+                  });
+                } finally {
+                  setActionLoading(null);
+                }
+              }}
+              onSendWhatsApp={async () => {
+                setActionMessage("Preparando enlace de WhatsApp...");
+                setActionLoading(entrada.entradaID);
+                try {
+                  const { url } = await apiCall<{ url: string }>(
+                    "getWhatsAppUrl",
+                    { entradaId: entrada.entradaID },
+                    token
+                  );
+                  window.open(url, "_blank");
+                } finally {
+                  setActionLoading(null);
+                }
+              }}
+              onCopyWhatsApp={async () => {
+                setActionMessage("Copiando enlace de WhatsApp...");
+                setActionLoading(entrada.entradaID);
+                try {
+                  const { url } = await apiCall<{ url: string }>(
+                    "getWhatsAppUrl",
+                    { entradaId: entrada.entradaID },
+                    token
+                  );
+                  await copyToClipboard(url);
+                } finally {
+                  setActionLoading(null);
+                }
+              }}
+              onConfirmWhatsApp={() =>
+                withLoading(
+                  entrada.entradaID,
+                  "Confirmando envío de WhatsApp...",
+                  () =>
+                    apiCall(
+                      "confirmWhatsApp",
+                      { entradaId: entrada.entradaID },
+                      token
+                    ).then(() => undefined)
                 )
               }
               onReturn={() =>
-                withLoading(entrada.entradaID, () =>
-                  apiCall(
-                    "returnToPendientes",
-                    { entradaId: entrada.entradaID },
-                    token
-                  ).then(() => undefined)
+                withLoading(
+                  entrada.entradaID,
+                  "Regresando entrada a pendientes...",
+                  () =>
+                    apiCall(
+                      "returnToPendientes",
+                      { entradaId: entrada.entradaID },
+                      token
+                    ).then(() => undefined)
                 )
               }
             />

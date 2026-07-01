@@ -20,6 +20,7 @@ interface EntradaCardProps {
   onResendWhatsApp?: () => void;
   onReturnHistorial?: () => void;
   loading?: boolean;
+  loadingLabel?: string;
 }
 
 export function EntradaCard({
@@ -38,6 +39,7 @@ export function EntradaCard({
   onResendWhatsApp,
   onReturnHistorial,
   loading,
+  loadingLabel = "Procesando...",
 }: EntradaCardProps) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -61,7 +63,7 @@ export function EntradaCard({
           Modalidad: {entrada.modalidad} — Cantidad: {entrada.cantidad} —
           Vendedor: {entrada.vendedor}
         </p>
-        <p>ID de Compra: {entrada.entradaID}</p>
+        <p>ID de Compra: {entrada.codigoCompra}</p>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -85,7 +87,7 @@ export function EntradaCard({
               disabled={loading}
               className="rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
             >
-              Aprobar
+              {loading ? loadingLabel : "Aprobar"}
             </button>
             <button
               type="button"
@@ -93,7 +95,7 @@ export function EntradaCard({
               disabled={loading}
               className="rounded-lg bg-gray-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
             >
-              Rechazar
+              {loading ? "Rechazando..." : "Rechazar"}
             </button>
           </>
         )}

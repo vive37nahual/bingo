@@ -8,8 +8,8 @@ export const metadata: Metadata = {
   description:
     "Sistema de venta y distribución de cartones BINGO VIVE 37 Nahual",
   icons: {
-    icon: "/logo-ref.png",
-    apple: "/logo-ref.png",
+    icon: [{ url: "/icon.png", type: "image/png" }],
+    apple: [{ url: "/apple-icon.png", type: "image/png" }],
   },
   openGraph: {
     title: "VIVE 37 Nahual — BINGO",

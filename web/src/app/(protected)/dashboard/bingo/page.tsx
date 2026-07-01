@@ -31,6 +31,7 @@ interface DashboardData {
     comprador: string;
     modalidad: string;
     cantidad: number;
+    cartones: string;
     precioPagado: number;
     vendedor: string;
   }[];
@@ -178,6 +179,7 @@ export default function DashboardBingoPage() {
                     <th className="p-3">Comprador</th>
                     <th className="p-3">Modalidad</th>
                     <th className="p-3">Cantidad</th>
+                    <th className="p-3">Cartones</th>
                     <th className="p-3">Precio Pagado</th>
                     <th className="p-3">Vendedor</th>
                   </tr>
@@ -188,6 +190,9 @@ export default function DashboardBingoPage() {
                       <td className="p-3">{row.comprador}</td>
                       <td className="p-3">{row.modalidad}</td>
                       <td className="p-3">{row.cantidad}</td>
+                      <td className="p-3 font-mono text-xs">
+                        {row.cartones || "—"}
+                      </td>
                       <td className="p-3">
                         {formatColones(row.precioPagado)}
                       </td>

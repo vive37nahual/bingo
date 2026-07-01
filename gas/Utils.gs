@@ -167,3 +167,55 @@ function checkRateLimit(identifier, maxPerHour) {
   cache.put(key, String(count + 1), 3600);
   return true;
 }
+
+var CODIGO_COMPRA_CHARS_ = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function generateCodigoCompra() {
+  ensureEntradasSchema_();
+  var existing = {};
+  sheetToObjects(getSheet(SHEET_NAMES.ENTRADAS)).forEach(function(e) {
+    if (e.codigoCompra) existing[String(e.codigoCompra).toUpperCase()] = true;
+  });
+
+  for (var attempt = 0; attempt < 50; attempt++) {
+    var code = '';
+    for (var i = 0; i < 8; i++) {
+      code += CODIGO_COMPRA_CHARS_.charAt(Math.floor(Math.random() * CODIGO_COMPRA_CHARS_.length));
+    }
+    if (!existing[code]) return code;
+  }
+  throw new Error('No se pudo generar un código de compra único');
+}
+
+function ensureEntradasSchema_() {
+  var sheet = getSheet(SHEET_NAMES.ENTRADAS);
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (headers.indexOf('codigoCompra') !== -1) return;
+
+  sheet.insertColumnAfter(1);
+  sheet.getRange(1, 2).setValue('codigoCompra');
+
+  var lastRow = sheet.getLastRow();
+  var used = {};
+  for (var row = 2; row <= lastRow; row++) {
+    var code = '';
+    do {
+      code = '';
+      for (var i = 0; i < 8; i++) {
+        code += CODIGO_COMPRA_CHARS_.charAt(Math.floor(Math.random() * CODIGO_COMPRA_CHARS_.length));
+      }
+    } while (used[code]);
+    used[code] = true;
+    sheet.getRange(row, 2).setValue(code);
+  }
+}
+
+function appendEntradaRow_(values) {
+  ensureEntradasSchema_();
+  var sheet = getSheet(SHEET_NAMES.ENTRADAS);
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var row = headers.map(function(h) {
+    return values[h] !== undefined && values[h] !== null ? values[h] : '';
+  });
+  sheet.appendRow(row);
+}

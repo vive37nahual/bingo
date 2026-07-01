@@ -36,7 +36,7 @@ Ver [DEPLOYMENT.md](DEPLOYMENT.md) sección Google Apps Script.
 
 ## Columnas principales — entradas
 
-`entradaID`, `fechaRegistro`, `nombre`, `apellido`, `modalidad`, `correo`, `notifyWhatsApp`, `numWA`, `cantidad`, `monto`, `vendedor`, `metodo`, `comprobante`, `estado`, `cartonesAsignados`, `emailEnviado`, `whatsappEnviado`, `myfreebingoListo`, `notaRegreso`, `fechaCompletada`
+`entradaID`, `codigoCompra`, `fechaRegistro`, `nombre`, `apellido`, `modalidad`, `correo`, `notifyWhatsApp`, `numWA`, `cantidad`, `monto`, `vendedor`, `metodo`, `comprobante`, `estado`, `cartonesAsignados`, `emailEnviado`, `whatsappEnviado`, `myfreebingoListo`, `notaRegreso`, `fechaCompletada`
 
 ## Login admin no funciona — diagnóstico
 

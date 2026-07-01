@@ -6,7 +6,7 @@ import Image from "next/image";
 import { apiCall, fileToBase64, formatColones } from "@/lib/api";
 import type { FormConfig } from "@/lib/types";
 import { SectionLoader } from "@/components/ui/SectionLoader";
-import { Upload } from "lucide-react";
+import { Upload, CheckCircle2, Banknote, Smartphone, Building2 } from "lucide-react";
 
 const ACCEPTED_TYPES = [
   "image/jpeg",
@@ -138,6 +138,7 @@ export default function FormularioPage() {
       const base64 = await fileToBase64(file);
       const result = await apiCall<{
         entradaID: number;
+        codigoCompra: string;
         nombre: string;
         apellido: string;
         cantidad: number;
@@ -178,7 +179,7 @@ export default function FormularioPage() {
           </h1>
         </div>
 
-        <SectionLoader loading={loading || submitting}>
+        <SectionLoader loading={loading || submitting} message={submitting ? "Enviando formulario..." : "Cargando formulario..."}>
           <form
             onSubmit={handleSubmit}
             className="space-y-5 rounded-2xl bg-white p-6 shadow-lg"
@@ -273,54 +274,60 @@ export default function FormularioPage() {
               </Field>
             )}
 
-            <div className="flex flex-wrap items-end gap-4">
-              <Field label="Cantidad de cartones" required>
-                <div className="flex items-stretch">
-                  <button
-                    type="button"
-                    aria-label="Disminuir cantidad"
-                    onClick={() => setCantidad(form.cantidad - 1)}
-                    disabled={form.cantidad <= 1}
-                    className="rounded-l-lg border border-r-0 border-gray-300 bg-amber-50 px-3 text-lg font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-40"
-                  >
-                    −
-                  </button>
-                  <input
-                    required
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={cantidadInput}
-                    onChange={(e) => {
-                      const digits = e.target.value.replace(/\D/g, "");
-                      setCantidadInput(digits);
-                      if (digits !== "") {
-                        const parsed = Number(digits);
-                        if (parsed >= 1 && parsed <= 20) {
-                          setForm((prev) => ({ ...prev, cantidad: parsed }));
+            <div className="flex flex-wrap items-start gap-4">
+              <div>
+                <Field label="Cantidad de cartones" required>
+                  <div className="flex items-stretch">
+                    <button
+                      type="button"
+                      aria-label="Disminuir cantidad"
+                      onClick={() => setCantidad(form.cantidad - 1)}
+                      disabled={form.cantidad <= 1}
+                      className="rounded-l-lg border border-r-0 border-gray-300 bg-amber-50 px-3 text-lg font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-40"
+                    >
+                      −
+                    </button>
+                    <input
+                      required
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={cantidadInput}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, "");
+                        setCantidadInput(digits);
+                        if (digits !== "") {
+                          const parsed = Number(digits);
+                          if (parsed >= 1 && parsed <= 20) {
+                            setForm((prev) => ({ ...prev, cantidad: parsed }));
+                          }
                         }
-                      }
-                    }}
-                    onBlur={handleCantidadBlur}
-                    className="input-field w-16 rounded-none border-x-0 text-center [appearance:textfield]"
-                  />
-                  <button
-                    type="button"
-                    aria-label="Aumentar cantidad"
-                    onClick={() => setCantidad(form.cantidad + 1)}
-                    disabled={form.cantidad >= 20}
-                    className="rounded-r-lg border border-l-0 border-gray-300 bg-amber-50 px-3 text-lg font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-40"
-                  >
-                    +
-                  </button>
+                      }}
+                      onBlur={handleCantidadBlur}
+                      className="input-field w-16 rounded-none border-x-0 text-center [appearance:textfield]"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Aumentar cantidad"
+                      onClick={() => setCantidad(form.cantidad + 1)}
+                      disabled={form.cantidad >= 20}
+                      className="rounded-r-lg border border-l-0 border-gray-300 bg-amber-50 px-3 text-lg font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-40"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">Entre 1 y 20 cartones</p>
+                </Field>
+              </div>
+              <div className="self-start pt-[1.625rem]">
+                <div className="rounded-xl border-2 border-amber-300 bg-amber-50 px-5 py-2.5 shadow-sm">
+                  <span className="block text-xs font-semibold uppercase tracking-wide text-amber-800">
+                    Monto total
+                  </span>
+                  <span className="text-xl font-bold text-amber-900">
+                    {formatColones(monto)}
+                  </span>
                 </div>
-                <p className="mt-1 text-xs text-gray-500">Entre 1 y 20 cartones</p>
-              </Field>
-              <div className="rounded-lg bg-amber-50 px-4 py-2">
-                <span className="text-sm text-gray-600">Monto total: </span>
-                <span className="text-lg font-bold text-amber-800">
-                  {formatColones(monto)}
-                </span>
               </div>
             </div>
 
@@ -345,11 +352,18 @@ export default function FormularioPage() {
             <Field label="Método de pago" required>
               <div className="space-y-2">
                 {[
-                  { value: "SINPE", label: "SINPE Móvil" },
-                  { value: "Transferencia", label: "Transferencia Bancaria" },
-                  { value: "Efectivo", label: "Efectivo" },
+                  { value: "SINPE", label: "SINPE Móvil", icon: Smartphone },
+                  { value: "Transferencia", label: "Transferencia Bancaria", icon: Building2 },
+                  { value: "Efectivo", label: "Efectivo", icon: Banknote },
                 ].map((opt) => (
-                  <label key={opt.value} className="flex items-center gap-2">
+                  <label
+                    key={opt.value}
+                    className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition ${
+                      form.metodo === opt.value
+                        ? "border-amber-500 bg-amber-50"
+                        : "border-gray-200 hover:border-amber-300"
+                    }`}
+                  >
                     <input
                       type="radio"
                       name="metodo"
@@ -359,78 +373,125 @@ export default function FormularioPage() {
                       onChange={(e) =>
                         setForm({ ...form, metodo: e.target.value })
                       }
+                      className="h-4 w-4"
                     />
+                    <opt.icon className="h-4 w-4 text-amber-700" />
                     {opt.label}
                   </label>
                 ))}
               </div>
+
               {form.metodo === "SINPE" && (
-                <p className="mt-2 text-sm text-gray-600">
-                  Número SINPE Móvil: {config?.sinpe.numero} a nombre de{" "}
-                  {config?.sinpe.nombre}
-                </p>
+                <div className="mt-3 rounded-xl border-2 border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50 p-4 shadow-sm">
+                  <p className="text-sm font-bold uppercase tracking-wide text-amber-900">
+                    Datos para SINPE Móvil
+                  </p>
+                  <p className="mt-2 text-lg font-bold text-gray-900">
+                    {config?.sinpe.numero}
+                  </p>
+                  <p className="text-sm font-medium text-amber-800">
+                    A nombre de: {config?.sinpe.nombre}
+                  </p>
+                  <p className="mt-2 text-sm text-gray-700">
+                    Realice su pago por SINPE Móvil y suba el comprobante en este
+                    formulario.
+                  </p>
+                </div>
               )}
               {form.metodo === "Transferencia" && (
-                <p className="mt-2 text-sm text-gray-600">
-                  Cuenta IBAN: {config?.iban}
-                </p>
+                <div className="mt-3 rounded-xl border-2 border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50 p-4 shadow-sm">
+                  <p className="text-sm font-bold uppercase tracking-wide text-amber-900">
+                    Datos para transferencia bancaria
+                  </p>
+                  <p className="mt-2 break-all font-mono text-base font-bold text-gray-900">
+                    {config?.iban}
+                  </p>
+                  <p className="mt-2 text-sm text-gray-700">
+                    Transfiera el monto total indicado y adjunte el comprobante
+                    de la transferencia.
+                  </p>
+                </div>
               )}
               {form.metodo === "Efectivo" && (
-                <p className="mt-2 text-sm text-gray-600">
-                  Para pagos en efectivo, presente su comprobante mediante una
-                  fotografía donde aparezca usted junto al representante
-                  autorizado de VIVE 37 Nahual sosteniendo el monto
-                  correspondiente. Esta imagen servirá como constancia oficial de
-                  la transacción.
-                </p>
+                <div className="mt-3 rounded-xl border-2 border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50 p-4 shadow-sm">
+                  <p className="text-sm font-bold uppercase tracking-wide text-amber-900">
+                    Pago en efectivo
+                  </p>
+                  <p className="mt-2 text-sm font-medium leading-relaxed text-gray-800">
+                    Presente su comprobante mediante una fotografía donde aparezca
+                    usted junto al representante autorizado de{" "}
+                    <strong>VIVE 37 Nahual</strong> sosteniendo el monto
+                    correspondiente. Esta imagen servirá como constancia oficial de
+                    la transacción.
+                  </p>
+                </div>
               )}
             </Field>
 
             <Field label="Comprobante de Pago" required>
-              <div
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOver(true);
-                }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragOver(false);
-                  const f = e.dataTransfer.files[0];
-                  if (f) handleFile(f);
-                }}
-                className={`flex min-h-[140px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition ${
-                  dragOver
-                    ? "border-amber-500 bg-amber-50"
-                    : "border-gray-300 hover:border-amber-400"
-                }`}
-                onClick={() =>
-                  document.getElementById("file-input")?.click()
-                }
-              >
-                <Upload className="mb-2 h-8 w-8 text-gray-400" />
-                <p className="text-sm text-gray-600">
-                  Arrastre su archivo aquí o explore en su dispositivo
-                </p>
-                <p className="mt-1 text-xs text-gray-400">
-                  JPG, PNG, HEIC, WebP, PDF — máx 10MB
-                </p>
-                {file && (
-                  <p className="mt-2 text-sm font-medium text-amber-700">
-                    {file.name}
-                  </p>
-                )}
-                <input
-                  id="file-input"
-                  type="file"
-                  accept={ACCEPTED_TYPES.join(",")}
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
+              {file ? (
+                <div className="rounded-xl border-2 border-green-500 bg-green-50 p-5 shadow-sm ring-2 ring-green-200">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-green-600" />
+                    <div className="flex-1">
+                      <p className="font-semibold text-green-800">
+                        Comprobante cargado correctamente
+                      </p>
+                      <p className="mt-1 text-sm text-green-700">{file.name}</p>
+                      <p className="mt-1 text-xs text-green-600">
+                        {(file.size / 1024).toFixed(0)} KB — listo para enviar
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setFile(null)}
+                        className="mt-3 text-sm font-medium text-amber-700 underline hover:text-amber-900"
+                      >
+                        Cambiar archivo
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOver(true);
+                  }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOver(false);
+                    const f = e.dataTransfer.files[0];
                     if (f) handleFile(f);
                   }}
-                />
-              </div>
+                  className={`flex min-h-[140px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition ${
+                    dragOver
+                      ? "border-amber-500 bg-amber-50"
+                      : "border-gray-300 hover:border-amber-400"
+                  }`}
+                  onClick={() =>
+                    document.getElementById("file-input")?.click()
+                  }
+                >
+                  <Upload className="mb-2 h-8 w-8 text-gray-400" />
+                  <p className="text-sm text-gray-600">
+                    Arrastre su archivo aquí o explore en su dispositivo
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400">
+                    JPG, PNG, HEIC, WebP, PDF — máx 10MB
+                  </p>
+                  <input
+                    id="file-input"
+                    type="file"
+                    accept={ACCEPTED_TYPES.join(",")}
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleFile(f);
+                    }}
+                  />
+                </div>
+              )}
             </Field>
 
             <button

@@ -22,6 +22,7 @@ export interface User {
 
 export interface Entrada {
   entradaID: number;
+  codigoCompra: string;
   fechaRegistro: string;
   nombre: string;
   apellido: string;

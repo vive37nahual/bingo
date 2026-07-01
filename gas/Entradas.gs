@@ -13,6 +13,7 @@ function getEntradasByEstado(estado) {
 function formatEntradaForClient(e) {
   return {
     entradaID: e.entradaID,
+    codigoCompra: e.codigoCompra ? String(e.codigoCompra) : String(e.entradaID),
     fechaRegistro: e.fechaRegistro,
     nombre: e.nombre,
     apellido: e.apellido,
@@ -69,31 +70,35 @@ function submitEntrada(payload) {
   );
 
   var entradaId = getNextId('next_entrada_id');
-  getSheet(SHEET_NAMES.ENTRADAS).appendRow([
-    entradaId,
-    new Date(),
-    payload.nombre,
-    payload.apellido,
-    payload.modalidad,
-    payload.correo,
-    !!payload.notifyWhatsApp,
-    payload.numWA || '',
-    cantidad,
-    monto,
-    payload.vendedor,
-    payload.metodo,
-    comprobanteUrl,
-    'Pendiente',
-    '',
-    false,
-    false,
-    false,
-    '',
-    ''
-  ]);
+  var codigoCompra = generateCodigoCompra();
+
+  appendEntradaRow_({
+    entradaID: entradaId,
+    codigoCompra: codigoCompra,
+    fechaRegistro: new Date(),
+    nombre: payload.nombre,
+    apellido: payload.apellido,
+    modalidad: payload.modalidad,
+    correo: payload.correo,
+    notifyWhatsApp: !!payload.notifyWhatsApp,
+    numWA: payload.numWA || '',
+    cantidad: cantidad,
+    monto: monto,
+    vendedor: payload.vendedor,
+    metodo: payload.metodo,
+    comprobante: comprobanteUrl,
+    estado: 'Pendiente',
+    cartonesAsignados: '',
+    emailEnviado: false,
+    whatsappEnviado: false,
+    myfreebingoListo: false,
+    notaRegreso: '',
+    fechaCompletada: ''
+  });
 
   return {
     entradaID: entradaId,
+    codigoCompra: codigoCompra,
     nombre: payload.nombre,
     apellido: payload.apellido,
     cantidad: cantidad,
@@ -138,7 +143,11 @@ function approveEntrada(entradaId, token) {
   var row = findRowByColumn(sheet, 'entradaID', entradaId);
   if (row === -1) throw new Error('Entrada no encontrada');
 
-  var entrada = sheetToObjects(sheet).find(function(e) { return Number(e.entradaID) === Number(entradaId); });
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var rowData = sheet.getRange(row, 1, 1, headers.length).getValues()[0];
+  var entrada = {};
+  headers.forEach(function(h, i) { entrada[h] = rowData[i]; });
+
   if (String(entrada.estado) !== 'Pendiente') throw new Error('La entrada no está pendiente');
 
   var assigned = assignCartones(entrada);

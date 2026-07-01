@@ -48,6 +48,7 @@ function getDashboardData(token, filters) {
       comprador: e.nombre + ' ' + e.apellido,
       modalidad: e.modalidad,
       cantidad: Number(e.cantidad),
+      cartones: e.cartonesAsignados || '',
       precioPagado: Number(e.monto),
       vendedor: e.vendedor
     };
@@ -78,12 +79,13 @@ function objectToChartData(obj) {
 
 function exportDashboardCSV(token, filters) {
   var data = getDashboardData(token, filters);
-  var lines = ['Comprador,Modalidad,Cantidad,Precio Pagado,Vendedor'];
+  var lines = ['Comprador,Modalidad,Cantidad,Cartones,Precio Pagado,Vendedor'];
   data.tabla.forEach(function(row) {
     lines.push([
       '"' + row.comprador + '"',
       row.modalidad,
       row.cantidad,
+      '"' + (row.cartones || '') + '"',
       row.precioPagado,
       '"' + row.vendedor + '"'
     ].join(','));
@@ -109,11 +111,11 @@ function getPresenciales(token) {
 function exportHistorialCSV(token) {
   requirePermission(token, 'bingoVentas_historial');
   var items = getEntradasByEstado('Completada');
-  var lines = ['Fecha,ID,Comprador,Email,Monto,Cantidad,WhatsApp'];
+  var lines = ['Fecha,Codigo Compra,Comprador,Email,Monto,Cantidad,WhatsApp'];
   items.forEach(function(e) {
     lines.push([
       e.fechaCompletada || e.fechaRegistro,
-      e.entradaID,
+      e.codigoCompra || e.entradaID,
       '"' + e.nombre + ' ' + e.apellido + '"',
       e.correo,
       e.monto,
