@@ -15,6 +15,12 @@ interface ExitoData {
   monto: number;
 }
 
+interface LogoMeta {
+  dataUrl: string;
+  width: number;
+  height: number;
+}
+
 function purchaseId(data: ExitoData) {
   return data.codigoCompra || String(data.entradaID);
 }
@@ -40,87 +46,97 @@ const CONFIRMATION_TEXT = (data: ExitoData) => {
   };
 };
 
-async function loadImageDataUrl(path: string): Promise<string> {
+async function loadLogoMeta(path: string): Promise<LogoMeta> {
   const response = await fetch(path);
   if (!response.ok) throw new Error("No se pudo cargar el logo");
   const blob = await response.blob();
-  return await new Promise((resolve, reject) => {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = reject;
+    el.src = dataUrl;
+  });
+
+  const displayHeight = 160;
+  const displayWidth = Math.round(
+    (img.naturalWidth / img.naturalHeight) * displayHeight
+  );
+
+  return { dataUrl, width: displayWidth, height: displayHeight };
 }
 
-function buildPdfWithJsPdf(data: ExitoData, logoDataUrl: string | null) {
-  const pdf = new jsPDF({ unit: "mm", format: "letter" });
+function addCanvasToPdf(canvas: HTMLCanvasElement, pdf: jsPDF) {
   const pageWidth = pdf.internal.pageSize.getWidth();
-  const margin = 20;
-  let y = 18;
-  const copy = CONFIRMATION_TEXT(data);
-  const id = purchaseId(data);
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 14;
+  const maxWidth = pageWidth - margin * 2;
+  const maxHeight = pageHeight - margin * 2;
 
-  if (logoDataUrl) {
-    pdf.addImage(logoDataUrl, "PNG", pageWidth / 2 - 28, y, 56, 56);
-    y += 62;
+  const ratio = canvas.width / canvas.height;
+  let drawWidth = maxWidth;
+  let drawHeight = drawWidth / ratio;
+
+  if (drawHeight > maxHeight) {
+    drawHeight = maxHeight;
+    drawWidth = drawHeight * ratio;
   }
 
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(11);
-  pdf.setTextColor(30, 30, 30);
+  const x = (pageWidth - drawWidth) / 2;
+  const y = (pageHeight - drawHeight) / 2;
+  const imgData = canvas.toDataURL("image/png");
 
-  const introLines = pdf.splitTextToSize(copy.intro, pageWidth - margin * 2);
-  pdf.text(introLines, margin, y);
-  y += introLines.length * 6 + 4;
+  pdf.addImage(imgData, "PNG", x, y, drawWidth, drawHeight);
+}
 
-  pdf.text("Tu compra ha sido registrada con éxito.", margin, y);
-  y += 10;
+async function captureElement(el: HTMLElement) {
+  await document.fonts.ready;
 
-  pdf.setDrawColor(251, 191, 36);
-  pdf.setFillColor(255, 251, 235);
-  pdf.roundedRect(margin, y, pageWidth - margin * 2, 32, 3, 3, "FD");
-
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(10);
-  pdf.setTextColor(120, 53, 15);
-  pdf.text("ID DE TU COMPRA", pageWidth / 2, y + 8, { align: "center" });
-
-  pdf.setFont("courier", "bold");
-  pdf.setFontSize(20);
-  pdf.setTextColor(146, 64, 14);
-  pdf.text(id, pageWidth / 2, y + 18, { align: "center" });
-
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(9);
-  pdf.text(
-    `Registro: ${data.entradaID}  ·  ${formatColones(data.monto)}  ·  ${data.cantidad} cartón(es)`,
-    pageWidth / 2,
-    y + 26,
-    { align: "center" }
+  const images = el.querySelectorAll("img");
+  await Promise.all(
+    Array.from(images).map(
+      (img) =>
+        new Promise<void>((resolve) => {
+          if (img.complete && img.naturalWidth > 0) resolve();
+          else {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+          }
+        })
+    )
   );
-  y += 40;
 
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(10);
-  pdf.setTextColor(55, 55, 55);
-  const bodyLines = pdf.splitTextToSize(copy.body, pageWidth - margin * 2);
-  pdf.text(bodyLines, margin, y);
-  y += bodyLines.length * 5 + 8;
-
-  pdf.setFont("helvetica", "italic");
-  const closingLines = pdf.splitTextToSize(copy.closing, pageWidth - margin * 2);
-  pdf.text(closingLines, margin, y);
-
-  pdf.save(`comprobante-bingo-${id}.pdf`);
+  return html2canvas(el, {
+    scale: 2,
+    backgroundColor: "#ffffff",
+    logging: false,
+    useCORS: true,
+    allowTaint: false,
+    imageTimeout: 15000,
+    onclone: (clonedDoc) => {
+      const cloned = clonedDoc.querySelector("[data-comprobante]");
+      if (cloned instanceof HTMLElement) {
+        cloned.style.boxShadow = "none";
+        cloned.style.width = "480px";
+        cloned.style.maxWidth = "480px";
+      }
+    },
+  });
 }
 
 function ComprobanteDocument({
   data,
-  logoSrc,
+  logo,
   innerRef,
 }: {
   data: ExitoData;
-  logoSrc: string;
+  logo: LogoMeta | null;
   innerRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const copy = CONFIRMATION_TEXT(data);
@@ -129,22 +145,35 @@ function ComprobanteDocument({
   return (
     <div
       ref={innerRef}
-      className="rounded-2xl bg-white p-8 shadow-lg"
+      data-comprobante
+      className="mx-auto w-full max-w-[480px] rounded-2xl bg-white p-8 shadow-lg"
       style={{ backgroundColor: "#ffffff" }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={logoSrc}
-        alt="VIVE 37 Nahual"
-        className="mx-auto mb-6 h-36 w-auto max-w-full object-contain"
-      />
+      {logo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={logo.dataUrl}
+          alt="VIVE 37 Nahual"
+          width={logo.width}
+          height={logo.height}
+          className="mx-auto mb-6 block"
+          style={{
+            width: logo.width,
+            height: logo.height,
+            objectFit: "contain",
+          }}
+        />
+      ) : (
+        <div className="mx-auto mb-6 h-40 w-40 animate-pulse rounded-lg bg-amber-100" />
+      )}
 
-      <p className="text-gray-800 leading-relaxed">{copy.intro}</p>
-      <p className="mt-4 text-gray-800 leading-relaxed">
+      <p className="text-base text-gray-800 leading-relaxed">{copy.intro}</p>
+      <p className="mt-4 text-base text-gray-800 leading-relaxed">
         Tu compra ha sido registrada con éxito.
       </p>
 
       <div
+        data-id-box
         className="mt-6 rounded-xl border-2 border-amber-400 p-5 text-center"
         style={{ backgroundColor: "#fffbeb", borderColor: "#fbbf24" }}
       >
@@ -154,18 +183,21 @@ function ComprobanteDocument({
         <p className="mt-2 font-mono text-3xl font-bold tracking-widest text-amber-800">
           {id}
         </p>
-        <p className="mt-2 text-xs text-amber-700">
+        <p className="mt-3 text-sm text-amber-800">
           Nº de registro: {data.entradaID}
         </p>
-        <p className="mt-2 text-sm text-amber-700">
-          Monto: {formatColones(data.monto)} · {data.cantidad} cartón(es)
+        <p className="mt-1 text-sm text-amber-800">
+          Monto: {formatColones(data.monto)}
+        </p>
+        <p className="mt-1 text-sm text-amber-800">
+          {data.cantidad === 1 ? "1 cartón" : `${data.cantidad} cartones`}
         </p>
       </div>
 
-      <p className="mt-6 whitespace-pre-line text-gray-700 leading-relaxed">
+      <p className="mt-6 whitespace-pre-line text-sm text-gray-700 leading-relaxed">
         {copy.body}
       </p>
-      <p className="mt-6 whitespace-pre-line text-gray-700 italic">
+      <p className="mt-6 whitespace-pre-line text-sm italic text-gray-700">
         {copy.closing}
       </p>
     </div>
@@ -175,7 +207,7 @@ function ComprobanteDocument({
 export default function FormularioExitoPage() {
   const router = useRouter();
   const [data, setData] = useState<ExitoData | null>(null);
-  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
+  const [logo, setLogo] = useState<LogoMeta | null>(null);
   const [savingPdf, setSavingPdf] = useState(false);
   const [pdfError, setPdfError] = useState("");
   const contentRef = useRef<HTMLDivElement>(null);
@@ -185,72 +217,34 @@ export default function FormularioExitoPage() {
     if (stored) {
       setData(JSON.parse(stored));
     }
-    loadImageDataUrl("/logo-ref.png")
-      .then(setLogoDataUrl)
-      .catch(() => setLogoDataUrl(null));
+    loadLogoMeta("/logo-ref.png")
+      .then(setLogo)
+      .catch(() => setLogo(null));
   }, []);
 
   const savePDF = async () => {
     if (!data || !contentRef.current) return;
+    if (!logo) {
+      setPdfError("Espere un momento a que cargue el logo e intente de nuevo.");
+      return;
+    }
+
     setSavingPdf(true);
     setPdfError("");
 
     try {
-      const images = contentRef.current.querySelectorAll("img");
-      await Promise.all(
-        Array.from(images).map(
-          (img) =>
-            new Promise<void>((resolve) => {
-              if (img.complete) resolve();
-              else {
-                img.onload = () => resolve();
-                img.onerror = () => resolve();
-              }
-            })
-        )
-      );
-
-      const canvas = await html2canvas(contentRef.current, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-        useCORS: false,
-        allowTaint: true,
-        logging: false,
-        imageTimeout: 0,
+      const canvas = await captureElement(contentRef.current);
+      const pdf = new jsPDF({
+        unit: "mm",
+        format: "letter",
+        orientation: "portrait",
       });
-
-      const imgData = canvas.toDataURL("image/jpeg", 0.92);
-      const pdf = new jsPDF({ unit: "mm", format: "letter" });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 15;
-      const contentWidth = pageWidth - margin * 2;
-      const imgHeight = (canvas.height * contentWidth) / canvas.width;
-
-      if (imgHeight <= pageHeight - margin * 2) {
-        pdf.addImage(imgData, "JPEG", margin, margin, contentWidth, imgHeight);
-      } else {
-        let heightLeft = imgHeight;
-        let position = margin;
-        pdf.addImage(imgData, "JPEG", margin, position, contentWidth, imgHeight);
-        heightLeft -= pageHeight - margin * 2;
-        while (heightLeft > 0) {
-          pdf.addPage();
-          position = margin - (imgHeight - heightLeft);
-          pdf.addImage(imgData, "JPEG", margin, position, contentWidth, imgHeight);
-          heightLeft -= pageHeight - margin * 2;
-        }
-      }
-
+      addCanvasToPdf(canvas, pdf);
       pdf.save(`comprobante-bingo-${purchaseId(data)}.pdf`);
     } catch {
-      try {
-        buildPdfWithJsPdf(data, logoDataUrl);
-      } catch {
-        setPdfError(
-          "No se pudo generar el PDF. Intente de nuevo o tome una captura de pantalla."
-        );
-      }
+      setPdfError(
+        "No se pudo generar el PDF. Intente de nuevo o tome una captura de pantalla."
+      );
     } finally {
       setSavingPdf(false);
     }
@@ -267,16 +261,10 @@ export default function FormularioExitoPage() {
     );
   }
 
-  const logoSrc = logoDataUrl || "/logo-ref.png";
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white px-4 py-12">
       <div className="mx-auto max-w-lg">
-        <ComprobanteDocument
-          data={data}
-          logoSrc={logoSrc}
-          innerRef={contentRef}
-        />
+        <ComprobanteDocument data={data} logo={logo} innerRef={contentRef} />
 
         {pdfError && (
           <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
@@ -288,10 +276,14 @@ export default function FormularioExitoPage() {
           <button
             type="button"
             onClick={savePDF}
-            disabled={savingPdf}
+            disabled={savingPdf || !logo}
             className="flex-1 rounded-xl border-2 border-amber-600 py-3 font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50"
           >
-            {savingPdf ? "Generando PDF..." : "Guardar PDF"}
+            {savingPdf
+              ? "Generando PDF..."
+              : !logo
+                ? "Preparando PDF..."
+                : "Guardar PDF"}
           </button>
           <button
             type="button"
