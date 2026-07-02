@@ -15,7 +15,35 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.text();
+    const rawBody = await request.text();
+    let bodyObj: {
+      action?: string;
+      token?: string | null;
+      payload?: Record<string, unknown>;
+    };
+    try {
+      bodyObj = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          status: 400,
+          data: { error: "JSON inválido" },
+        },
+        { status: 400 }
+      );
+    }
+
+    if (bodyObj.action === "submitEntrada" && bodyObj.payload) {
+      const forwarded = request.headers.get("x-forwarded-for");
+      const clientIp =
+        forwarded?.split(",")[0]?.trim() ||
+        request.headers.get("x-real-ip") ||
+        "unknown";
+      bodyObj.payload.clientIp = clientIp;
+    }
+
+    const body = JSON.stringify(bodyObj);
     const response = await fetch(gasUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

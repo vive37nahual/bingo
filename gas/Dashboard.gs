@@ -3,6 +3,7 @@ function getDashboardData(token, filters) {
   filters = filters || {};
 
   var entradas = sheetToObjects(getSheet(SHEET_NAMES.ENTRADAS));
+  var cartonesByEntrada = buildCartonesByEntradaId_();
   var includeNonApproved = filters.includeNonApproved === true;
 
   var filtered = entradas.filter(function(e) {
@@ -48,7 +49,7 @@ function getDashboardData(token, filters) {
       comprador: e.nombre + ' ' + e.apellido,
       modalidad: e.modalidad,
       cantidad: Number(e.cantidad),
-      cartones: e.cartonesAsignados || '',
+      cartones: resolveCartonesForEntrada_(e, cartonesByEntrada),
       precioPagado: Number(e.monto),
       vendedor: e.vendedor
     };
@@ -77,6 +78,31 @@ function objectToChartData(obj) {
   });
 }
 
+function buildCartonesByEntradaId_() {
+  var map = {};
+  getCartonesSheetData().forEach(function(c) {
+    if (!c.entradaID) return;
+    var id = String(c.entradaID);
+    if (!map[id]) map[id] = [];
+    map[id].push(padCardNumber(c.numero));
+  });
+  Object.keys(map).forEach(function(id) {
+    map[id].sort(function(a, b) { return Number(a) - Number(b); });
+    map[id] = map[id].join(', ');
+  });
+  return map;
+}
+
+function resolveCartonesForEntrada_(entrada, cartonesByEntrada) {
+  var fromField = String(entrada.cartonesAsignados || '').trim();
+  if (fromField) {
+    return fromField.split(',').map(function(n) {
+      return padCardNumber(n.trim());
+    }).filter(function(n) { return n; }).join(', ');
+  }
+  return cartonesByEntrada[String(entrada.entradaID)] || '';
+}
+
 function exportDashboardCSV(token, filters) {
   var data = getDashboardData(token, filters);
   var lines = ['Comprador,Modalidad,Cantidad,Cartones,Precio Pagado,Vendedor'];
@@ -95,6 +121,7 @@ function exportDashboardCSV(token, filters) {
 
 function getPresenciales(token) {
   requireAuth(token);
+  var cartonesByEntrada = buildCartonesByEntradaId_();
   return sheetToObjects(getSheet(SHEET_NAMES.ENTRADAS))
     .filter(function(e) {
       return String(e.modalidad) === 'Presencial' && String(e.estado) === 'Completada';
@@ -103,7 +130,7 @@ function getPresenciales(token) {
       return {
         comprador: e.nombre + ' ' + e.apellido,
         cantidad: Number(e.cantidad),
-        cartones: e.cartonesAsignados || ''
+        cartones: resolveCartonesForEntrada_(e, cartonesByEntrada)
       };
     });
 }

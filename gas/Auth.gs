@@ -96,6 +96,15 @@ function requireAuth(token) {
   return { user: user, permissions: permissions, isAdmin: isAdmin };
 }
 
+function getOptionalAuth_(token) {
+  if (!token) return null;
+  try {
+    return requireAuth(token);
+  } catch (err) {
+    return null;
+  }
+}
+
 function requirePermission(token, permissionKey) {
   var auth = requireAuth(token);
   if (!auth.isAdmin && !auth.permissions[permissionKey]) {

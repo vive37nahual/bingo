@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { apiCall, fileToBase64, formatColones } from "@/lib/api";
 import type { FormConfig } from "@/lib/types";
+import { useAuth } from "@/lib/auth";
 import { SectionLoader } from "@/components/ui/SectionLoader";
 import { Upload, CheckCircle2, Banknote, Smartphone, Building2 } from "lucide-react";
 
@@ -20,6 +21,7 @@ const ACCEPTED_TYPES = [
 
 export default function FormularioPage() {
   const router = useRouter();
+  const { token, user } = useAuth();
   const [config, setConfig] = useState<FormConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -149,7 +151,7 @@ export default function FormularioPage() {
         comprobanteBase64: base64,
         comprobanteMimeType: file.type || "application/octet-stream",
         comprobanteFileName: file.name,
-      });
+      }, token);
 
       sessionStorage.setItem(
         "formulario_exito",
@@ -177,6 +179,11 @@ export default function FormularioPage() {
           <h1 className="mt-4 text-2xl font-bold text-gray-900">
             Compra de Cartones BINGO
           </h1>
+          {user && (
+            <p className="mt-2 text-sm text-amber-700">
+              Sesión: {user.nombre} {user.apellido} — sin límite de envíos
+            </p>
+          )}
         </div>
 
         <SectionLoader loading={loading || submitting} message={submitting ? "Enviando formulario..." : "Cargando formulario..."}>

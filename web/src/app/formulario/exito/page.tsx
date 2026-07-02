@@ -1,19 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 import { formatColones } from "@/lib/api";
-import { CheckCircle2 } from "lucide-react";
 
 interface ExitoData {
   entradaID: number;
-  codigoCompra: string;
+  codigoCompra?: string;
   nombre: string;
   apellido: string;
   cantidad: number;
   monto: number;
+}
+
+function purchaseId(data: ExitoData) {
+  return data.codigoCompra || String(data.entradaID);
 }
 
 const CONFIRMATION_TEXT = (data: ExitoData) => {
@@ -37,25 +41,55 @@ const CONFIRMATION_TEXT = (data: ExitoData) => {
   };
 };
 
-async function loadLogoDataUrl(): Promise<string | null> {
-  try {
-    const res = await fetch("/logo-ref.png");
-    const blob = await res.blob();
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return null;
-  }
+function buildFallbackPdf(data: ExitoData) {
+  const pdf = new jsPDF({ unit: "mm", format: "letter" });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const margin = 20;
+  let y = 20;
+  const copy = CONFIRMATION_TEXT(data);
+  const id = purchaseId(data);
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(16);
+  pdf.text("VIVE 37 Nahual — BINGO", pageWidth / 2, y, { align: "center" });
+  y += 12;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(11);
+  pdf.text(copy.intro, margin, y, { maxWidth: pageWidth - margin * 2 });
+  y += 14;
+
+  pdf.setFont("helvetica", "bold");
+  pdf.text("ID de tu Compra:", margin, y);
+  y += 8;
+  pdf.setFontSize(18);
+  pdf.text(id, margin, y);
+  y += 10;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
+  pdf.text(`Nº de registro (entradaID): ${data.entradaID}`, margin, y);
+  y += 8;
+  pdf.text(`Cantidad: ${data.cantidad} cartón(es)`, margin, y);
+  y += 6;
+  pdf.text(`Monto registrado: ${formatColones(data.monto)}`, margin, y);
+  y += 10;
+
+  pdf.setFontSize(11);
+  pdf.text(copy.body, margin, y, { maxWidth: pageWidth - margin * 2 });
+  y += 40;
+  pdf.setFont("helvetica", "italic");
+  pdf.text(copy.closing, margin, y, { maxWidth: pageWidth - margin * 2 });
+
+  pdf.save(`comprobante-bingo-${id}.pdf`);
 }
 
 export default function FormularioExitoPage() {
   const router = useRouter();
   const [data, setData] = useState<ExitoData | null>(null);
   const [savingPdf, setSavingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState("");
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("formulario_exito");
@@ -65,89 +99,47 @@ export default function FormularioExitoPage() {
   }, []);
 
   const savePDF = async () => {
-    if (!data) return;
+    if (!data || !contentRef.current) return;
     setSavingPdf(true);
+    setPdfError("");
     try {
+      const canvas = await html2canvas(contentRef.current, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({ unit: "mm", format: "letter" });
       const pageWidth = pdf.internal.pageSize.getWidth();
-      const margin = 20;
-      let y = 18;
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const imgWidth = pageWidth - margin * 2;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-      const logo = await loadLogoDataUrl();
-      if (logo) {
-        pdf.addImage(logo, "PNG", pageWidth / 2 - 25, y, 50, 50);
-        y += 58;
+      let heightLeft = imgHeight;
+      let position = margin;
+
+      pdf.addImage(imgData, "PNG", margin, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight - margin * 2;
+
+      while (heightLeft > 0) {
+        position = margin - (imgHeight - heightLeft);
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", margin, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight - margin * 2;
       }
 
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(16);
-      pdf.setTextColor(120, 53, 15);
-      pdf.text("VIVE 37 Nahual — BINGO", pageWidth / 2, y, { align: "center" });
-      y += 8;
-
-      pdf.setFontSize(11);
-      pdf.setTextColor(80, 80, 80);
-      pdf.text("Comprobante de registro de compra", pageWidth / 2, y, {
-        align: "center",
-      });
-      y += 14;
-
-      pdf.setDrawColor(245, 158, 11);
-      pdf.setLineWidth(0.8);
-      pdf.line(margin, y, pageWidth - margin, y);
-      y += 10;
-
-      const copy = CONFIRMATION_TEXT(data);
-
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(11);
-      pdf.setTextColor(30, 30, 30);
-
-      const introLines = pdf.splitTextToSize(copy.intro, pageWidth - margin * 2);
-      pdf.text(introLines, margin, y);
-      y += introLines.length * 6 + 4;
-
-      pdf.setFont("helvetica", "bold");
-      pdf.text("ID de tu Compra:", margin, y);
-      y += 7;
-
-      pdf.setFillColor(255, 251, 235);
-      pdf.roundedRect(margin, y - 5, pageWidth - margin * 2, 14, 2, 2, "F");
-      pdf.setFont("courier", "bold");
-      pdf.setFontSize(18);
-      pdf.setTextColor(146, 64, 14);
-      pdf.text(data.codigoCompra, pageWidth / 2, y + 4, { align: "center" });
-      y += 18;
-
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10);
-      pdf.setTextColor(60, 60, 60);
-      pdf.text(`Cantidad: ${data.cantidad} cartón(es)`, margin, y);
-      y += 6;
-      pdf.text(`Monto registrado: ${formatColones(data.monto)}`, margin, y);
-      y += 10;
-
-      const bodyLines = pdf.splitTextToSize(copy.body, pageWidth - margin * 2);
-      pdf.text(bodyLines, margin, y);
-      y += bodyLines.length * 5 + 8;
-
-      pdf.setFont("helvetica", "italic");
-      pdf.setFontSize(10);
-      const closingLines = pdf.splitTextToSize(copy.closing, pageWidth - margin * 2);
-      pdf.text(closingLines, margin, y);
-
-      y = pdf.internal.pageSize.getHeight() - 15;
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(8);
-      pdf.setTextColor(130, 130, 130);
-      pdf.text(
-        `Documento generado el ${new Date().toLocaleString("es-CR")}`,
-        pageWidth / 2,
-        y,
-        { align: "center" }
-      );
-
-      pdf.save(`comprobante-bingo-${data.codigoCompra}.pdf`);
+      pdf.save(`comprobante-bingo-${purchaseId(data)}.pdf`);
+    } catch {
+      try {
+        buildFallbackPdf(data);
+      } catch {
+        setPdfError(
+          "No se pudo generar el PDF. Intente de nuevo o tome una captura de pantalla."
+        );
+      }
     } finally {
       setSavingPdf(false);
     }
@@ -165,6 +157,7 @@ export default function FormularioExitoPage() {
   }
 
   const copy = CONFIRMATION_TEXT(data);
+  const id = purchaseId(data);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white px-4 py-12">
@@ -177,7 +170,10 @@ export default function FormularioExitoPage() {
           className="mx-auto mb-6 h-20 w-auto object-contain"
         />
 
-        <div className="rounded-2xl bg-white p-8 shadow-lg">
+        <div
+          ref={contentRef}
+          className="rounded-2xl bg-white p-8 shadow-lg"
+        >
           <p className="text-gray-800 leading-relaxed">{copy.intro}</p>
           <p className="mt-4 text-gray-800 leading-relaxed">
             Tu compra ha sido registrada con éxito.
@@ -188,7 +184,10 @@ export default function FormularioExitoPage() {
               ID de tu Compra
             </p>
             <p className="mt-2 font-mono text-3xl font-bold tracking-widest text-amber-800">
-              {data.codigoCompra}
+              {id}
+            </p>
+            <p className="mt-2 text-xs text-amber-700">
+              Nº de registro: {data.entradaID}
             </p>
             <p className="mt-2 text-sm text-amber-700">
               Monto: {formatColones(data.monto)} · {data.cantidad} cartón(es)
@@ -202,6 +201,12 @@ export default function FormularioExitoPage() {
             {copy.closing}
           </p>
         </div>
+
+        {pdfError && (
+          <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+            {pdfError}
+          </p>
+        )}
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <button

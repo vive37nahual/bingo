@@ -22,7 +22,7 @@ function routeAction(action, token, payload) {
     case 'getFormConfig':
       return getCachedFormConfig();
     case 'submitEntrada':
-      return submitEntrada(payload);
+      return submitEntrada(payload, token);
     case 'registerUser':
       return registerUser(payload);
     case 'login':

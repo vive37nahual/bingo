@@ -36,9 +36,14 @@ function formatEntradaForClient(e) {
   };
 }
 
-function submitEntrada(payload) {
+function submitEntrada(payload, token) {
+  var auth = getOptionalAuth_(token);
   var ip = payload.clientIp || 'unknown';
-  if (!checkRateLimit(ip, 5)) throw new Error('Demasiados envíos. Intente más tarde.');
+
+  // Usuarios aprobados (incl. admin) sin límite; público limitado por IP
+  if (!auth && !checkRateLimit(ip, 5)) {
+    throw new Error('Demasiados envíos. Intente más tarde.');
+  }
 
   var required = ['nombre', 'apellido', 'modalidad', 'correo', 'cantidad', 'vendedor', 'metodo'];
   required.forEach(function(f) {
