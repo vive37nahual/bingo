@@ -40,11 +40,87 @@ const CONFIRMATION_TEXT = (data: ExitoData) => {
   };
 };
 
+async function loadImageDataUrl(path: string): Promise<string> {
+  const response = await fetch(path);
+  if (!response.ok) throw new Error("No se pudo cargar el logo");
+  const blob = await response.blob();
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+function buildPdfWithJsPdf(data: ExitoData, logoDataUrl: string | null) {
+  const pdf = new jsPDF({ unit: "mm", format: "letter" });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const margin = 20;
+  let y = 18;
+  const copy = CONFIRMATION_TEXT(data);
+  const id = purchaseId(data);
+
+  if (logoDataUrl) {
+    pdf.addImage(logoDataUrl, "PNG", pageWidth / 2 - 28, y, 56, 56);
+    y += 62;
+  }
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(11);
+  pdf.setTextColor(30, 30, 30);
+
+  const introLines = pdf.splitTextToSize(copy.intro, pageWidth - margin * 2);
+  pdf.text(introLines, margin, y);
+  y += introLines.length * 6 + 4;
+
+  pdf.text("Tu compra ha sido registrada con éxito.", margin, y);
+  y += 10;
+
+  pdf.setDrawColor(251, 191, 36);
+  pdf.setFillColor(255, 251, 235);
+  pdf.roundedRect(margin, y, pageWidth - margin * 2, 32, 3, 3, "FD");
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(10);
+  pdf.setTextColor(120, 53, 15);
+  pdf.text("ID DE TU COMPRA", pageWidth / 2, y + 8, { align: "center" });
+
+  pdf.setFont("courier", "bold");
+  pdf.setFontSize(20);
+  pdf.setTextColor(146, 64, 14);
+  pdf.text(id, pageWidth / 2, y + 18, { align: "center" });
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.text(
+    `Registro: ${data.entradaID}  ·  ${formatColones(data.monto)}  ·  ${data.cantidad} cartón(es)`,
+    pageWidth / 2,
+    y + 26,
+    { align: "center" }
+  );
+  y += 40;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
+  pdf.setTextColor(55, 55, 55);
+  const bodyLines = pdf.splitTextToSize(copy.body, pageWidth - margin * 2);
+  pdf.text(bodyLines, margin, y);
+  y += bodyLines.length * 5 + 8;
+
+  pdf.setFont("helvetica", "italic");
+  const closingLines = pdf.splitTextToSize(copy.closing, pageWidth - margin * 2);
+  pdf.text(closingLines, margin, y);
+
+  pdf.save(`comprobante-bingo-${id}.pdf`);
+}
+
 function ComprobanteDocument({
   data,
+  logoSrc,
   innerRef,
 }: {
   data: ExitoData;
+  logoSrc: string;
   innerRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const copy = CONFIRMATION_TEXT(data);
@@ -53,63 +129,45 @@ function ComprobanteDocument({
   return (
     <div
       ref={innerRef}
-      className="overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-b from-amber-50 to-white shadow-xl"
+      className="rounded-2xl bg-white p-8 shadow-lg"
+      style={{ backgroundColor: "#ffffff" }}
     >
-      <div className="bg-[#441900] px-6 py-10 text-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/logo-ref.png"
-          alt="Equipo Nahual — VIVE 37"
-          className="mx-auto h-44 w-auto max-w-full object-contain"
-          crossOrigin="anonymous"
-        />
-        <h2 className="mt-5 text-xl font-bold tracking-wide text-amber-50">
-          VIVE 37 Nahual — BINGO
-        </h2>
-        <p className="mt-1 text-sm text-amber-200/90">
-          Comprobante de registro de compra
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={logoSrc}
+        alt="VIVE 37 Nahual"
+        className="mx-auto mb-6 h-36 w-auto max-w-full object-contain"
+      />
+
+      <p className="text-gray-800 leading-relaxed">{copy.intro}</p>
+      <p className="mt-4 text-gray-800 leading-relaxed">
+        Tu compra ha sido registrada con éxito.
+      </p>
+
+      <div
+        className="mt-6 rounded-xl border-2 border-amber-400 p-5 text-center"
+        style={{ backgroundColor: "#fffbeb", borderColor: "#fbbf24" }}
+      >
+        <p className="text-sm font-semibold uppercase tracking-wide text-amber-900">
+          ID de tu Compra
+        </p>
+        <p className="mt-2 font-mono text-3xl font-bold tracking-widest text-amber-800">
+          {id}
+        </p>
+        <p className="mt-2 text-xs text-amber-700">
+          Nº de registro: {data.entradaID}
+        </p>
+        <p className="mt-2 text-sm text-amber-700">
+          Monto: {formatColones(data.monto)} · {data.cantidad} cartón(es)
         </p>
       </div>
 
-      <div className="border-t border-amber-100 bg-white px-8 py-8">
-        <p className="text-base leading-relaxed text-gray-800">{copy.intro}</p>
-        <p className="mt-4 text-base leading-relaxed text-gray-800">
-          Tu compra ha sido registrada con éxito.
-        </p>
-
-        <div className="mt-6 rounded-xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 to-orange-50 p-6 text-center shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-widest text-amber-900">
-            ID de tu Compra
-          </p>
-          <p className="mt-3 font-mono text-4xl font-bold tracking-widest text-amber-800">
-            {id}
-          </p>
-          <div className="mt-4 space-y-1 text-sm text-amber-800">
-            <p>
-              <span className="font-semibold">Nº de registro:</span>{" "}
-              {data.entradaID}
-            </p>
-            <p>
-              <span className="font-semibold">Monto:</span>{" "}
-              {formatColones(data.monto)}
-            </p>
-            <p>
-              <span className="font-semibold">Cartones:</span> {data.cantidad}
-            </p>
-          </div>
-        </div>
-
-        <p className="mt-6 whitespace-pre-line text-sm leading-relaxed text-gray-700">
-          {copy.body}
-        </p>
-        <p className="mt-6 whitespace-pre-line text-sm italic leading-relaxed text-gray-700">
-          {copy.closing}
-        </p>
-      </div>
-
-      <div className="border-t border-amber-900/20 bg-[#92400e] px-6 py-4 text-center text-xs text-amber-50">
-        BINGO VIVE 37 Nahual — En beneficio de Casa Hogar San Lazaro
-      </div>
+      <p className="mt-6 whitespace-pre-line text-gray-700 leading-relaxed">
+        {copy.body}
+      </p>
+      <p className="mt-6 whitespace-pre-line text-gray-700 italic">
+        {copy.closing}
+      </p>
     </div>
   );
 }
@@ -117,6 +175,7 @@ function ComprobanteDocument({
 export default function FormularioExitoPage() {
   const router = useRouter();
   const [data, setData] = useState<ExitoData | null>(null);
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [savingPdf, setSavingPdf] = useState(false);
   const [pdfError, setPdfError] = useState("");
   const contentRef = useRef<HTMLDivElement>(null);
@@ -126,50 +185,72 @@ export default function FormularioExitoPage() {
     if (stored) {
       setData(JSON.parse(stored));
     }
+    loadImageDataUrl("/logo-ref.png")
+      .then(setLogoDataUrl)
+      .catch(() => setLogoDataUrl(null));
   }, []);
 
   const savePDF = async () => {
     if (!data || !contentRef.current) return;
     setSavingPdf(true);
     setPdfError("");
+
     try {
+      const images = contentRef.current.querySelectorAll("img");
+      await Promise.all(
+        Array.from(images).map(
+          (img) =>
+            new Promise<void>((resolve) => {
+              if (img.complete) resolve();
+              else {
+                img.onload = () => resolve();
+                img.onerror = () => resolve();
+              }
+            })
+        )
+      );
+
       const canvas = await html2canvas(contentRef.current, {
-        scale: 3,
-        backgroundColor: "#fffbeb",
-        useCORS: true,
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: false,
+        allowTaint: true,
         logging: false,
-        imageTimeout: 15000,
+        imageTimeout: 0,
       });
 
-      const imgData = canvas.toDataURL("image/png", 1.0);
-      const pdf = new jsPDF({ unit: "mm", format: "letter", orientation: "portrait" });
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
+      const pdf = new jsPDF({ unit: "mm", format: "letter" });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 12;
+      const margin = 15;
       const contentWidth = pageWidth - margin * 2;
       const imgHeight = (canvas.height * contentWidth) / canvas.width;
 
       if (imgHeight <= pageHeight - margin * 2) {
-        pdf.addImage(imgData, "PNG", margin, margin, contentWidth, imgHeight);
+        pdf.addImage(imgData, "JPEG", margin, margin, contentWidth, imgHeight);
       } else {
         let heightLeft = imgHeight;
         let position = margin;
-        pdf.addImage(imgData, "PNG", margin, position, contentWidth, imgHeight);
+        pdf.addImage(imgData, "JPEG", margin, position, contentWidth, imgHeight);
         heightLeft -= pageHeight - margin * 2;
-
         while (heightLeft > 0) {
           pdf.addPage();
           position = margin - (imgHeight - heightLeft);
-          pdf.addImage(imgData, "PNG", margin, position, contentWidth, imgHeight);
+          pdf.addImage(imgData, "JPEG", margin, position, contentWidth, imgHeight);
           heightLeft -= pageHeight - margin * 2;
         }
       }
 
       pdf.save(`comprobante-bingo-${purchaseId(data)}.pdf`);
     } catch {
-      setPdfError(
-        "No se pudo generar el PDF. Intente de nuevo o tome una captura de pantalla."
-      );
+      try {
+        buildPdfWithJsPdf(data, logoDataUrl);
+      } catch {
+        setPdfError(
+          "No se pudo generar el PDF. Intente de nuevo o tome una captura de pantalla."
+        );
+      }
     } finally {
       setSavingPdf(false);
     }
@@ -186,10 +267,16 @@ export default function FormularioExitoPage() {
     );
   }
 
+  const logoSrc = logoDataUrl || "/logo-ref.png";
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white px-4 py-12">
       <div className="mx-auto max-w-lg">
-        <ComprobanteDocument data={data} innerRef={contentRef} />
+        <ComprobanteDocument
+          data={data}
+          logoSrc={logoSrc}
+          innerRef={contentRef}
+        />
 
         {pdfError && (
           <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
