@@ -2,24 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import { formatColones } from "@/lib/api";
-
-interface ExitoData {
-  entradaID: number;
-  codigoCompra?: string;
-  nombre: string;
-  apellido: string;
-  cantidad: number;
-  monto: number;
-}
-
-interface LogoMeta {
-  dataUrl: string;
-  width: number;
-  height: number;
-}
+import {
+  downloadComprobantePdf,
+  type ExitoData,
+  type LogoMeta,
+} from "@/lib/comprobante-pdf";
 
 function purchaseId(data: ExitoData) {
   return data.codigoCompra || String(data.entradaID);
@@ -72,64 +60,6 @@ async function loadLogoMeta(path: string): Promise<LogoMeta> {
   return { dataUrl, width: displayWidth, height: displayHeight };
 }
 
-function addCanvasToPdf(canvas: HTMLCanvasElement, pdf: jsPDF) {
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = 14;
-  const maxWidth = pageWidth - margin * 2;
-  const maxHeight = pageHeight - margin * 2;
-
-  const ratio = canvas.width / canvas.height;
-  let drawWidth = maxWidth;
-  let drawHeight = drawWidth / ratio;
-
-  if (drawHeight > maxHeight) {
-    drawHeight = maxHeight;
-    drawWidth = drawHeight * ratio;
-  }
-
-  const x = (pageWidth - drawWidth) / 2;
-  const y = (pageHeight - drawHeight) / 2;
-  const imgData = canvas.toDataURL("image/png");
-
-  pdf.addImage(imgData, "PNG", x, y, drawWidth, drawHeight);
-}
-
-async function captureElement(el: HTMLElement) {
-  await document.fonts.ready;
-
-  const images = el.querySelectorAll("img");
-  await Promise.all(
-    Array.from(images).map(
-      (img) =>
-        new Promise<void>((resolve) => {
-          if (img.complete && img.naturalWidth > 0) resolve();
-          else {
-            img.onload = () => resolve();
-            img.onerror = () => resolve();
-          }
-        })
-    )
-  );
-
-  return html2canvas(el, {
-    scale: 2,
-    backgroundColor: "#ffffff",
-    logging: false,
-    useCORS: true,
-    allowTaint: false,
-    imageTimeout: 15000,
-    onclone: (clonedDoc) => {
-      const cloned = clonedDoc.querySelector("[data-comprobante]");
-      if (cloned instanceof HTMLElement) {
-        cloned.style.boxShadow = "none";
-        cloned.style.width = "480px";
-        cloned.style.maxWidth = "480px";
-      }
-    },
-  });
-}
-
 function ComprobanteDocument({
   data,
   logo,
@@ -164,7 +94,12 @@ function ComprobanteDocument({
           }}
         />
       ) : (
-        <div className="mx-auto mb-6 h-40 w-40 animate-pulse rounded-lg bg-amber-100" />
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src="/logo-ref.png"
+          alt="VIVE 37 Nahual"
+          className="mx-auto mb-6 block h-40 w-auto object-contain"
+        />
       )}
 
       <p className="text-base text-gray-800 leading-relaxed">{copy.intro}</p>
@@ -223,25 +158,15 @@ export default function FormularioExitoPage() {
   }, []);
 
   const savePDF = async () => {
-    if (!data || !contentRef.current) return;
-    if (!logo) {
-      setPdfError("Espere un momento a que cargue el logo e intente de nuevo.");
-      return;
-    }
+    if (!data) return;
 
     setSavingPdf(true);
     setPdfError("");
 
     try {
-      const canvas = await captureElement(contentRef.current);
-      const pdf = new jsPDF({
-        unit: "mm",
-        format: "letter",
-        orientation: "portrait",
-      });
-      addCanvasToPdf(canvas, pdf);
-      pdf.save(`comprobante-bingo-${purchaseId(data)}.pdf`);
-    } catch {
+      await downloadComprobantePdf(data, logo);
+    } catch (error) {
+      console.error("PDF generation failed:", error);
       setPdfError(
         "No se pudo generar el PDF. Intente de nuevo o tome una captura de pantalla."
       );
@@ -276,14 +201,10 @@ export default function FormularioExitoPage() {
           <button
             type="button"
             onClick={savePDF}
-            disabled={savingPdf || !logo}
+            disabled={savingPdf}
             className="flex-1 rounded-xl border-2 border-amber-600 py-3 font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50"
           >
-            {savingPdf
-              ? "Generando PDF..."
-              : !logo
-                ? "Preparando PDF..."
-                : "Guardar PDF"}
+            {savingPdf ? "Generando PDF..." : "Guardar PDF"}
           </button>
           <button
             type="button"
